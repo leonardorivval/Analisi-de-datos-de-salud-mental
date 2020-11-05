@@ -1,0 +1,174 @@
+---
+title: "Exploring the BRFSS data"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+```
+
+### Load data
+
+Open the brfss2013 file by secting it from your pc files
+
+```{r load-data}
+load(file.choose())
+```
+
+
+
+* * *
+
+## Part 1: Data
+The data from the Behavioral Risk Factor Surveillance System (BRFSS) is a collection of data which have the purpose of measuring behavioral risk factors for the non-institutionalized adult population (18 years of age and older) residing in the US. Therefore we know that such data has for population the people who reside in the US,  and have an age of 18 years or older. There is also data from 17 years old and younger persons, but is limited to optional modules of questions. 
+
+It is also important to underline some aspects of the data collection that affect our analysis of the data. First, our data analysis can only be of an observational study since the data is collected without manipulation of variables. Also because of this, causality is not be obtainable, just correlation. Second, our data is collected via random digital dialing, but the number of interviews within each state will vary based on funding and the size of regions, such as health districts, within each state. Because of that it seems to be a multistage sample Third, participants may or may not respond, they are not obligated nor compensated for their response. This can make the data suffer from no-response bias, and a bias of voluntary response. Fourth, because the data is a sample from a US population which only includes persons from 18 years old and above, the conclusions derived from the data are limited to this population niche.
+
+The variables that we would be using are
+
+sleptim1 (How Much Time Do You Sleep)
+menthlth (Number Of Days Mental Health Not Good)
+exerany2 (Exercise In Past 30 Days)
+educa: Education Level
+sex: Respondents Sex
+* * *
+
+## Part 2: Research questions
+
+**Research question 1:**
+To explore the relation between the sleeping time, the number of days mental health was reported to be good or bad, as well with the fact of persons have done or not exercise in the past 30 days.
+
+**Research question 2:**
+To explore the relation between the sleeping time, the number of days mental health was reported to be good or bad, if they are or are not veterans, and the educational level. 
+
+**Research question 3:**
+To explore the relation between the sleeping time, the number of days mental health was reported to be good or bad, and the interaction with sex.
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+NOTE: Insert code chunks as needed by clicking on the "Insert a new code chunk" 
+button (green button with orange arrow) above. Make sure that your code is visible
+in the project you submit. Delete this note when before you submit your work.
+
+**Research question 1:**
+
+First, we need to know a little bit more about our variables. For this we may use the select() to select our variables of interest from the data frame, and str() to know the structure of our variables.
+```{r}
+brfss2013 %>% 
+  select(sleptim1, menthlth, exerany2) %>% 
+  str()
+```
+This shows us that the sleptim1 and menthlth are numeric, and that exerany2 is a factor with 2 levels. Because of that we can take measures of central tendency for the former two.
+
+```{r}
+brfss2013 %>% 
+  select(sleptim1, menthlth) %>% 
+  summary()
+```
+
+Now we know that the min sleeping time is 0, and that the max is about 450,000! This seem completely wrong, the 0 may be explained by a misunderstanding of the question, one could respond thinking that they were ask how much had sleep that particular night, or maybe they simply respond whatever. For the 450,000 we may hypothesize an error in capturing the data, or simply a very uncooperative person. Whatever is the case, it may be convenient to adjust our data a little bit. We can alterate our data frame and generate a variable that classifies the amount of sleep in "sleep enough if the amount of sleep is about the recommended amount, and sleep little if is below that mark.
+
+```{r}
+brfss2013<- brfss2013%>%
+  mutate(sleepmucho = ifelse(sleptim1 >= 7, "Sleep enough", "Sleep little"))
+brfss2013 %>% 
+  group_by(sleepmucho) %>% 
+  summarise(count = n())
+```
+We can appreciate that the mayority is sleeping enough. But we would still have the problem of the big variance in the data due to the extreme and incoherent values.
+
+Now we could try to plot our data as it is right now to see what happens. We can make a jitter plot that has in the x-axis the menthlth, in the y-axis the sleptim1, and that  has the color as a function of the exerany2 (if they or do not exercise)
+
+
+```{r}
+a <- ggplot(data=brfss2013, aes(x =menthlth, y=sleptim1))
+a + geom_jitter(size= 1, aes(color= exerany2)) + coord_cartesian(xlim = c(0,30), ylim= c(0,30))
+
+```
+As it is right now the data shows no particular relation between the exerany2 and the other two variables, except that in when we reach the 30 at menthlth we have a little bit of reduction in the exercise habits.
+
+We can now alter our data to create a new variable based on sleptim1 to reduce the range of sleeping time. We could reduce the range to a more reasonable range, let's say 4-10 hours.
+
+```{r}
+brfss2013 <- brfss2013 %>% filter(sleptim1 %in% (4:10))
+```
+This allows us to cut the range of the data to an aceptable range
+
+```{r}
+a <- ggplot(data=brfss2013, aes(x =menthlth, y=sleptim1))
+a + geom_jitter(size= 1, aes(color= exerany2)) + coord_cartesian(xlim = c(0,30), ylim= c(0,10))
+```
+Now there seems to be a slightly increase in the no exercise as the persons report less days with good mental health. Still, seems to be no relation between sleep time and good mental health. Of course this is just exploratory and more things would be needed to actually show any significant relation. 
+
+
+
+**Research question 2:**
+
+Firs we can explor the veteran variable
+```{r}
+brfss2013 %>% 
+  select(veteran3) %>% 
+  str()
+```
+As we see it is factor of two levels (yes or no)
+
+Therefore we can apply a similar treatment as we did with the color before. But also means that we can get some frequencies of the data.
+
+```{r}
+brfss2013%>%
+  group_by(veteran3,educa)%>%
+  summarise(count= n())
+```
+We can appreciate that veterans are actually a relative small fraction of all the participants, but also that they have course from elementary school to graduate school. Tt is also important to notice that their scholar level tend to be higher.
+
+```{r}
+a <- ggplot(data=brfss2013, aes(x =menthlth, y=sleptim1))
+a + geom_jitter(size= 1, aes(color= veteran3)) + coord_cartesian(xlim = c(0,30), ylim= c(0,10))
+```
+There seems to be no actual relation between being a veteran, sleeping time, and reported days of bad mental health. So it seems that at least in this sample there in not a relation between the amount of bad mental health days and being a veteran; which is unexpected. But it must be underline that this is just an exploration of data.
+
+```{r}
+a <- ggplot(data=brfss2013, aes(x =menthlth, y=sleptim1))
+a + geom_jitter(size= 1, aes(color= veteran3)) + coord_cartesian(xlim = c(0,30), ylim= c(0,10)) + facet_grid(educa~.)
+```
+Finally, we can observe that there appears to be a slight relation between being a veteran and having a higher school education.
+
+**Research quesion 3:**
+We can begin exploring the sex variable
+```{r}
+brfss2013 %>% 
+  select(sex) %>% 
+  str()
+```
+We see that sex is a factor of two levels. (male/female)
+
+```{r}
+brfss2013 %>% 
+  group_by(sex) %>% 
+  summarise(count= n())
+```
+There is a predominance of female participants over male participants in our sample.
+
+We can apply a similar treatment as our other cases to this one. We can make a plot as in the first case
+```{r}
+a <- ggplot(data=brfss2013, aes(x =menthlth, y=sleptim1))
+a + geom_jitter(size= 1, aes(color= sex)) + coord_cartesian(xlim = c(0,30), ylim= c(0,10)) 
+```
+There seems to be a slight increase of women that report bad mental health days, but there appears to be no difference in sleeping time. It also needs to be considered that the sample has more women than men.
+
+We can also generate a boxplot of just sex and mental health day to see if is is more clear
+```{r}
+ggplot(data= brfss2013, aes(x=sex, y= menthlth)) + geom_boxplot()
+```
+As mentioned, there is a little tendency from women to report more bad mental health days but it is very little one (it is observable by the interquartile range). Also, as expected from the above data it is very skewed to the right.
